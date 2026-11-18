@@ -66,3 +66,9 @@ Check `https://YOUR_STAGING_DOMAIN/api/health/` and `/api/docs/` after deploy.
 - The SSH deployment user must not be able to modify root-owned deploy files.
 - Consider pinning third-party GitHub Actions and container images by digest for production.
 - The current API media endpoint is publicly served; verify that uploaded images contain no sensitive data.
+
+## Automated staging deployment
+
+The staging workflow runs on relevant pushes to develop, executes the Cloud regression checks, publishes the immutable image and deploys via SSH using the staging environment secrets. The separate Cloud CI remains for pull requests and branch checks; push checks are duplicated intentionally for now.
+
+Before merging the automation PR, an administrator must install the reviewed deploy script from the feature branch using a temporary upload directory and sudo install, verify its syntax, and confirm runner-to-server SSH connectivity. GitHub-hosted runners have variable outbound addresses; use a controlled network path rather than assuming the existing firewall allows access. Keep the SSH known-host entry verified and the deploy user restricted to the root-owned deployment script. Do not overwrite the existing .env or database volume. Changes to compose.yaml, Caddyfile or the installed script require a separate reviewed administrator installation on the server before deploying; the workflow only supplies an image digest. No automatic rollback is provided.
