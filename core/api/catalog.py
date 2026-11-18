@@ -1,10 +1,11 @@
+import mimetypes
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from rest_framework import generics, serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 
 from core.models import DeviceType, DeviceModel
 from .permissions import AuthenticatedOnly
@@ -82,12 +83,12 @@ class DeviceModelDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def device_model_image(request, pk):
     device_model = get_object_or_404(DeviceModel, pk=pk)
     if not device_model.image:
         raise Http404
     try:
-        return FileResponse(device_model.image.open("rb"), content_type="image/" + device_model.image.name.rsplit(".", 1)[-1].lower())
+        return FileResponse(device_model.image.open("rb"), content_type=mimetypes.guess_type(device_model.image.name)[0] or "application/octet-stream")
     except (FileNotFoundError, OSError):
         raise Http404
