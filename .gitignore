@@ -1,7 +1,10 @@
 .env
+**/.env
 __pycache__/
 .pytest_cache/
 *.pyc
 .venv/
 .idea/
 *.idea/*
+**/*.sqlite3
+**/media/

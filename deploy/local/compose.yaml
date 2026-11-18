@@ -1,0 +1,15 @@
+services:
+  agent:
+    build:
+      context: ../../agent
+    restart: unless-stopped
+    environment:
+      HOMECORE_AGENT_DB: /data/agent.sqlite3
+      HOMECORE_AGENT_HOST: 0.0.0.0
+      HOMECORE_AGENT_PORT: 8081
+    ports:
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - agent_data:/data
+volumes:
+  agent_data:

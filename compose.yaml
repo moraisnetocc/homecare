@@ -12,7 +12,8 @@ services:
       interval: 5s
       retries: 10
   api:
-    build: .
+    build:
+      context: ./cloud
     env_file: .env
     ports:
       - "127.0.0.1:8000:8000"
@@ -20,7 +21,7 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - .:/app
+      - ./cloud:/app
       - media_data:/app/media
 volumes:
   postgres_data:
