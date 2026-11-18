@@ -17,6 +17,8 @@ jobs:
           cache-dependency-path: cloud/requirements.txt
       - run: pip install -r cloud/requirements.txt
       - run: python -m compileall -q cloud
+      - name: Create CI environment file
+        run: cp .env.example .env
       - run: docker compose -f compose.yaml config
         env:
           POSTGRES_DB: homecore
