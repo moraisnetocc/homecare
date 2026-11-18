@@ -1,8 +1,8 @@
 [Unit]
-Description=Daily HomeCore PostgreSQL backup (%i)
+Description=Monthly HomeCore PostgreSQL backup (%i)
 
 [Timer]
-OnCalendar=*-*-* 03:00:00 America/Sao_Paulo
+OnCalendar=*-*-01 03:00:00 America/Sao_Paulo
 Persistent=true
 Unit=homecore-postgres-backup@%i.service
 
