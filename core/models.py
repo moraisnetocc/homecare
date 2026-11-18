@@ -50,3 +50,64 @@ class Installation(UUIDModel):
     home = models.OneToOneField(Home, on_delete=models.PROTECT, related_name="installation")
     last_seen_at = models.DateTimeField(null=True, blank=True)
     is_revoked = models.BooleanField(default=False)
+
+class Room(UUIDModel):
+    home = models.ForeignKey(Home, on_delete=models.CASCADE, related_name="rooms")
+    name = models.CharField(max_length=120)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["home", "name"], name="unique_room_name_per_home")]
+
+class DeviceType(UUIDModel):
+    slug = models.SlugField(max_length=80, unique=True)
+    name = models.CharField(max_length=120)
+
+    def __str__(self):
+        return self.name
+
+
+def device_model_image_path(instance, filename):
+    import os
+    extension = os.path.splitext(filename)[1].lower()
+    return f"device-models/{instance.pk}/{uuid.uuid4().hex}{extension}"
+
+
+class DeviceModel(UUIDModel):
+    device_type = models.ForeignKey(DeviceType, on_delete=models.PROTECT, related_name="models")
+    manufacturer = models.CharField(max_length=120)
+    model = models.CharField(max_length=160)
+    protocol = models.CharField(max_length=80, blank=True, default="")
+    capabilities = models.JSONField(default=list)
+    image = models.ImageField(upload_to=device_model_image_path, blank=True, null=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["manufacturer", "model", "protocol"],
+            name="unique_catalog_device_model",
+        )]
+
+    def __str__(self):
+        return f"{self.manufacturer} {self.model}"
+
+
+class Device(UUIDModel):
+    class Kind(models.TextChoices):
+        LIGHT = "light", "Light"
+        OUTLET = "outlet", "Outlet"
+        SWITCH = "switch", "Switch"
+        SENSOR = "sensor", "Sensor"
+        THERMOSTAT = "thermostat", "Thermostat"
+        OTHER = "other", "Other"
+    device_model = models.ForeignKey(DeviceModel, on_delete=models.PROTECT, null=True, blank=True, related_name="devices")
+    home = models.ForeignKey(Home, on_delete=models.CASCADE, related_name="devices")
+    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True, related_name="devices")
+    name = models.CharField(max_length=160)
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.OTHER)
+    external_id = models.CharField(max_length=255, blank=True, default="")
+    capabilities = models.JSONField(default=list)
+    state = models.JSONField(default=dict)
+    is_available = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["home", "external_id"], condition=~Q(external_id=""), name="unique_device_external_id_per_home"),
+        ]
