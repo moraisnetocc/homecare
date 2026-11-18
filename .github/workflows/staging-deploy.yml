@@ -19,7 +19,7 @@ jobs:
         env:
           DEPLOY_REF: ${{ inputs.ref }}
         run: |
-          [[ "$DEPLOY_REF" =~ ^[a-fA-F0-9]{40}$ ]] || exit 1
+          [[ "$DEPLOY_REF" =~ ^[a-f0-9]{40}$ ]] || exit 1
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
