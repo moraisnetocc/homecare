@@ -7,7 +7,7 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 INSTALLED_APPS = [
     "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
     "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles",
-    "rest_framework", "core",
+    "rest_framework", "drf_spectacular", "core",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -43,4 +43,13 @@ USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-REST_FRAMEWORK = {"DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"]}
+REST_FRAMEWORK = {
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+SPECTACULAR_SETTINGS = {
+    "TITLE": "HomeCore Cloud API",
+    "DESCRIPTION": "API de gestão multi-tenant de clientes, casas e membros.",
+    "VERSION": "0.2.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
