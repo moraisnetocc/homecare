@@ -1,13 +1,24 @@
-name: Staging Cloud image
+name: Staging Cloud deployment
 on:
   push:
     branches: [develop]
+    paths: ['cloud/**', 'compose.yaml', 'deploy/staging/**', '.github/workflows/staging-deploy.yml', '.github/workflows/cloud.yml']
 permissions:
   contents: read
-  packages: write
+concurrency:
+  group: homecore-staging
+  cancel-in-progress: false
 jobs:
+  checks:
+    uses: ./.github/workflows/cloud.yml
   publish:
+    needs: checks
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -24,8 +35,34 @@ jobs:
           push: true
           tags: ghcr.io/moraisnetocc/homecare-cloud:sha-${{ github.sha }}
           platforms: linux/amd64
-      - name: Record immutable image
+  deploy:
+    needs: publish
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 20
+    steps:
+      - name: Deploy immutable image
         env:
-          DIGEST: ${{ steps.build.outputs.digest }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          DIGEST: ${{ needs.publish.outputs.digest }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo "ghcr.io/moraisnetocc/homecare-cloud@$DIGEST" >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          [[ "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          [[ "$SSH_USER" == deploy ]]
+          [[ "$SSH_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
+          if [[ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/develop" --jq .object.sha)" != "$GITHUB_SHA" ]]; then
+            echo "Skipping superseded commit"
+            exit 0
+          fi
+          umask 077
+          dir="$(mktemp -d)"
+          trap 'rm -rf "$dir"' EXIT
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$dir/key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$dir/known_hosts"
+          image="ghcr.io/moraisnetocc/homecare-cloud@$DIGEST"
+          ssh -i "$dir/key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$dir/known_hosts" -o ConnectTimeout=20 "$SSH_USER@$SSH_HOST" "sudo -n /usr/local/sbin/homecore-staging-deploy $image"
+          echo "Deployed $image" >> "$GITHUB_STEP_SUMMARY"

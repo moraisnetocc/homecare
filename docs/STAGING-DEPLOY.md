@@ -49,16 +49,17 @@ sudo docker login ghcr.io -u YOUR_GITHUB_USERNAME
 ```
 Paste the token when prompted (not your GitHub password). For better hygiene, use a dedicated machine account and credential helper, and rotate credentials. This setup is for staging only.
 
-### Deploy
-After merging into `develop`, wait for Actions → Staging Cloud image to succeed. Copy the complete digest-pinned image reference from the job summary. No SSH deployment is triggered by the merge. From your Mac, run (replace the digest):
+### Automatic deploy
+Relevant pushes to develop run Cloud CI, publish a digest-pinned image, and deploy using the staging environment SSH secrets. PRs run checks without deployment. The GitHub-hosted runner must be able to reach SSH port 22; use a trusted static-egress network or restricted VPN runner where possible. Do not disable host key checking or expose password authentication. Restrict the staging environment to develop. The workflow checks the current develop SHA before deploying and serializes runs; a superseded run may be skipped.
 
+Before enabling the workflow, install the updated deploy.sh manually as homecore:
 ```bash
-ssh -i ~/.ssh/homecore_staging_deploy -o IdentitiesOnly=yes deploy@104.248.177.222 'sudo -n /usr/local/sbin/homecore-staging-deploy ghcr.io/moraisnetocc/homecare-cloud@sha256:REPLACE_WITH_DIGEST'
+scp deploy/staging/deploy.sh homecore@104.248.177.222:~/staging-upload/deploy.sh
+ssh homecore@104.248.177.222 'sudo install -o root -g root -m 0755 ~/staging-upload/deploy.sh /usr/local/sbin/homecore-staging-deploy'
 ```
+Create ~/staging-upload with mode 700 first if absent. Keep the existing .env and database volumes. Changes to server-side compose/Caddyfile/script still require reviewed manual installation; the CI deploy user cannot edit them. The deploy script waits for PostgreSQL, runs migrations and collectstatic, starts services and checks public HTTPS health. Failed checks do not roll back containers or migrations.
 
-The script waits for PostgreSQL, runs migrations and collectstatic, starts services and checks public HTTPS health before persisting the image reference in .env. A failed check does not roll back containers or migrations. GitHub-hosted runners do not need inbound SSH access for this approach; keep SSH restricted to trusted client IPs. Existing staging secrets are reserved for a future approval-gated workflow.
-
-Check `https://YOUR_STAGING_DOMAIN/api/health/` and `/api/docs/` after deploy.
+Check the job summary, /api/health/, and /api/docs/ after deployment. Manual deployment remains possible using the restricted command and an approved image digest.
 
 ### Limitations / follow-up
 - Database backups and restore drills are required before real customer data.

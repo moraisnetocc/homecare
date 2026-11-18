@@ -21,7 +21,13 @@ docker compose --env-file .env -f compose.yaml ps
 DOMAIN="$(sed -n 's/^HOMECORE_DOMAIN=//p' .env)"
 [[ "$DOMAIN" =~ ^[a-zA-Z0-9.-]+$ ]] || exit 2
 for attempt in {1..30}; do
-  if curl --fail --silent --show-error --max-time 10 "https://$DOMAIN/api/health/" | python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get("status")=="ok" and d.get("service")=="homecore-cloud" else 1)'; then
+  if response="$(curl --fail --silent --show-error --max-time 10 "https://$DOMAIN/api/health/")" &&
+     python3 -c 'import json,sys
+try:
+    d=json.load(sys.stdin)
+    sys.exit(0 if isinstance(d,dict) and d.get("status")=="ok" and d.get("service")=="homecore-cloud" else 1)
+except ValueError:
+    sys.exit(1)' <<< "$response"; then
     tmp="$(mktemp .env.XXXXXX)"
     trap 'rm -f "$tmp"' EXIT
     sed "s|^HOMECORE_IMAGE=.*|HOMECORE_IMAGE=$IMAGE|" .env > "$tmp"
@@ -29,6 +35,7 @@ for attempt in {1..30}; do
     echo "Deployment validated: $IMAGE"
     exit 0
   fi
+  echo "Health check attempt $attempt/30 failed; retrying." >&2
   sleep 5
 done
 echo "Health check failed; deployment may be running. Inspect logs before retrying." >&2

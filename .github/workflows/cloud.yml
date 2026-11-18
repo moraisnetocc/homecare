@@ -1,7 +1,8 @@
 name: Cloud CI
 on:
+  workflow_call:
   push:
-    branches: [develop, main]
+    branches: [main]
     paths: ['cloud/**', 'compose.yaml', 'deploy/staging/**', '.github/workflows/staging-deploy.yml', '.github/workflows/cloud.yml']
   pull_request:
     paths: ['cloud/**', 'compose.yaml', 'deploy/staging/**', '.github/workflows/staging-deploy.yml', '.github/workflows/cloud.yml']
