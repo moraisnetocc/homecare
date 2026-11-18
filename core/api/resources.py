@@ -2,7 +2,7 @@ from django.db.models import Q
 from rest_framework import generics, serializers
 from rest_framework.exceptions import PermissionDenied
 
-from core.models import Device, Home, HomeMembership, Room, TenantMembership
+from core.models import Device, DeviceModel, Home, HomeMembership, Room, TenantMembership
 from .permissions import AuthenticatedOnly, is_tenant_admin
 
 
@@ -45,7 +45,7 @@ class RoomSerializer(serializers.ModelSerializer):
 class DeviceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Device
-        fields = ("id", "home", "room", "name", "kind", "external_id", "capabilities", "state", "is_available", "created_at", "updated_at")
+        fields = ("id", "home", "room", "device_model", "name", "kind", "external_id", "capabilities", "state", "is_available", "created_at", "updated_at")
         read_only_fields = ("id", "state", "is_available", "created_at", "updated_at")
 
     def validate_home(self, value):
