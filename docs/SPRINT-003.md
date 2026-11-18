@@ -7,12 +7,25 @@
 - As listas aceitam `?home=<uuid>` para filtrar por casa.
 - Swagger: `/api/docs/`
 
+## Catálogo global reutilizável
+
+- `GET/POST /api/v1/device-types/` e `GET/PATCH/PUT/DELETE /api/v1/device-types/{id}/`
+- `GET/POST /api/v1/device-models/` e `GET/PATCH/PUT/DELETE /api/v1/device-models/{id}/`
+- Qualquer usuário autenticado pode consultar o catálogo; apenas usuários `is_staff` podem criar, editar ou excluir tipos/modelos.
+- `DeviceModel`: `device_type`, `manufacturer`, `model`, `protocol`, `capabilities` e `image` opcional.
+- Upload de `image` via `multipart/form-data` (PNG/JPEG/WebP etc. validados por Pillow; limite 5 MB). A resposta inclui `image_url` absoluta ou `null`.
+- A URL `GET /api/v1/device-models/{id}/image/` serve a imagem publicamente para permitir exibição em clientes sem headers Bearer; **não envie imagens privadas** ao catálogo.
+- Imagens são persistidas no volume Docker `media_data`. Para produção, usar object storage/CDN e política de tamanho, quota, rate limit e limpeza de arquivos substituídos.
+- `Device.device_model` é FK opcional; equipamentos legados continuam válidos. `Device.kind` e `Device.capabilities` permanecem dados da instância e não são sincronizados automaticamente com o catálogo.
+- Não é possível excluir um modelo ainda associado a dispositivos (`PROTECT`).
+
 ## Exemplo de dispositivo
 
 ```json
 {
   "home": "<uuid-da-casa>",
   "room": "<uuid-do-ambiente>",
+  "device_model": "<uuid-do-modelo>",
   "name": "Lâmpada da sala",
   "kind": "light",
   "external_id": "ha:light.sala",
