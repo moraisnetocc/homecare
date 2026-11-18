@@ -52,4 +52,4 @@ def test_image_upload_returns_url_and_serves_file(settings, tmp_path):
     image_response = APIClient().get(f"/api/v1/device-models/{response.data['id']}/image/")
     assert image_response.status_code == 200
     assert image_response["Content-Type"] == "image/png"
-    assert b"".join(image_response.streaming_content).startswith(b"\\x89PNG")
+    assert b"".join(image_response.streaming_content).startswith(bytes([137, 80, 78, 71]))
