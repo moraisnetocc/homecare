@@ -2,9 +2,9 @@ name: Cloud CI
 on:
   push:
     branches: [develop, main]
-    paths: ['cloud/**', 'compose.yaml', '.github/workflows/cloud.yml']
+    paths: ['cloud/**', 'compose.yaml', 'deploy/staging/**', '.github/workflows/staging-deploy.yml', '.github/workflows/cloud.yml']
   pull_request:
-    paths: ['cloud/**', 'compose.yaml', '.github/workflows/cloud.yml']
+    paths: ['cloud/**', 'compose.yaml', 'deploy/staging/**', '.github/workflows/staging-deploy.yml', '.github/workflows/cloud.yml']
 jobs:
   checks:
     runs-on: ubuntu-latest
@@ -26,3 +26,17 @@ jobs:
           POSTGRES_PASSWORD: ci-only
           POSTGRES_HOST: db
           POSTGRES_PORT: '5432'
+      - name: Validate staging compose and shell
+        run: |
+          cp deploy/staging/.env.example deploy/staging/.env
+          docker compose --env-file deploy/staging/.env -f deploy/staging/compose.yaml config --quiet
+          bash -n deploy/staging/deploy.sh
+      - name: Django regression tests
+        run: |
+          docker compose up -d --wait db
+          docker compose run --rm api python manage.py migrate --noinput
+          docker compose run --rm api python manage.py makemigrations --check --dry-run
+          docker compose run --rm api pytest -q
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
