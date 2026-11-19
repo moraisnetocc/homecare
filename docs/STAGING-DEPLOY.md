@@ -56,13 +56,13 @@ After merging into `develop`, wait for Actions → Staging Cloud image to succee
 ssh -i ~/.ssh/homecore_staging_deploy -o IdentitiesOnly=yes deploy@104.248.177.222 'sudo -n /usr/local/sbin/homecore-staging-deploy ghcr.io/moraisnetocc/homecare-cloud@sha256:REPLACE_WITH_DIGEST'
 ```
 
-The script waits for PostgreSQL, runs migrations and collectstatic, starts services and checks public HTTPS health before persisting the image reference in .env. A failed check does not roll back containers or migrations. GitHub-hosted runners do not need inbound SSH access for this approach; keep SSH restricted to trusted client IPs. Existing staging secrets are reserved for a future approval-gated workflow.
+The script waits for PostgreSQL, runs migrations and collectstatic, starts services and checks public HTTPS health before persisting the image reference in .env. A failed application deployment attempts to restore the previous validated application image; migrations are never reversed automatically. GitHub-hosted runners do not need inbound SSH access for this approach; keep SSH restricted to trusted client IPs. Existing staging secrets are reserved for a future approval-gated workflow.
 
 Check `https://YOUR_STAGING_DOMAIN/api/health/` and `/api/docs/` after deploy.
 
 ### Limitations / follow-up
 - Database backups and restore drills are required before real customer data.
-- Add transactional rollback, deeper smoke tests, and secret rotation.
+- Add crash recovery, deeper smoke tests, and secret rotation.
 - The SSH deployment user must not be able to modify root-owned deploy files.
 - Consider pinning third-party GitHub Actions and container images by digest for production.
 - The current API media endpoint is publicly served; verify that uploaded images contain no sensitive data.
@@ -71,4 +71,13 @@ Check `https://YOUR_STAGING_DOMAIN/api/health/` and `/api/docs/` after deploy.
 
 The staging workflow runs on relevant pushes to develop, executes the Cloud regression checks, publishes the immutable image and deploys via SSH using the staging environment secrets. The separate Cloud CI remains for pull requests and branch checks; push checks are duplicated intentionally for now.
 
-Before merging the automation PR, an administrator must install the reviewed deploy script from the feature branch using a temporary upload directory and sudo install, verify its syntax, and confirm runner-to-server SSH connectivity. GitHub-hosted runners have variable outbound addresses; use a controlled network path rather than assuming the existing firewall allows access. Keep the SSH known-host entry verified and the deploy user restricted to the root-owned deployment script. Do not overwrite the existing .env or database volume. Changes to compose.yaml, Caddyfile or the installed script require a separate reviewed administrator installation on the server before deploying; the workflow only supplies an image digest. No automatic rollback is provided.
+Before merging the automation PR, an administrator must install the reviewed deploy script from the feature branch using a temporary upload directory and sudo install, verify its syntax, and confirm runner-to-server SSH connectivity. GitHub-hosted runners have variable outbound addresses; use a controlled network path rather than assuming the existing firewall allows access. Keep the SSH known-host entry verified and the deploy user restricted to the root-owned deployment script. Do not overwrite the existing .env or database volume. Changes to compose.yaml, Caddyfile or the installed script require a separate reviewed administrator installation on the server before deploying; the workflow only supplies an image digest. Application rollback is enabled when the updated script is installed.
+
+
+## Application rollback
+
+The existing .env digest is the last committed image. The script refuses deployment if the running API does not match it or fails HTTPS/DB checks. Only the API image is pulled/recreated; PostgreSQL and Caddy lifecycle is separate. On migration, static collection, API startup or validation failure, the previous image is recreated and static assets recollected. The workflow exits nonzero even when recovery succeeds. Inspect ROLLBACK_SUCCEEDED or ROLLBACK_FAILED in Actions logs.
+
+Install the reviewed script before merging this PR: upload to ~/staging-upload, run bash -n, then sudo install -o root -g root -m 755 deploy.sh /usr/local/sbin/homecore-staging-deploy. Do not change .env. Use a disposable staging-only test image with a failing startup to exercise recovery; do not intentionally break production. Verify previous digest, HTTPS, DB connectivity and Actions failure. Keep previous image available locally and in GHCR.
+
+Migrations must be backward compatible (expand/contract across separate releases). No automatic reverse migration or DB restore; partially applied or incompatible migrations can prevent rollback. Static collection does not remove obsolete assets. Health is a basic local TLS and database connectivity check, not full application testing. SIGKILL, host loss, and network interruption are not guaranteed recoverable by this mechanism. Bootstrap of an empty installation requires separate manual deployment. Never prune images needed for rollback.
