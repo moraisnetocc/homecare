@@ -2,6 +2,7 @@
 Description=HomeCore PostgreSQL backup (%i)
 Requires=docker.service
 After=docker.service
+OnSuccess=homecore-postgres-offsite@%i.service
 
 [Service]
 Type=oneshot
